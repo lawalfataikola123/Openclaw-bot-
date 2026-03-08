@@ -1,0 +1,5 @@
+{
+  "name": "OpenClaw Dashboard",
+  "description": "Advanced neural bridge interface for OpenClaw operations. Real-time monitoring and OpenClaw AI integration.",
+  "requestFramePermissions": []
+}
