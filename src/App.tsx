@@ -56,11 +56,47 @@ export default function App() {
   const [integrationConfig, setIntegrationConfig] = useState<{ 
     telegram: boolean; 
     whatsapp: boolean;
-    telegramToken?: string | null;
     whatsappNumber?: string | null;
-    twilioAccountSid?: string | null;
   }>({ telegram: false, whatsapp: false });
+  
+  const [telegramTokenInput, setTelegramTokenInput] = useState("");
+  const [twilioSidInput, setTwilioSidInput] = useState("");
+  const [twilioAuthInput, setTwilioAuthInput] = useState("");
+  const [twilioPhoneInput, setTwilioPhoneInput] = useState("");
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const handleSaveConfig = async (e: FormEvent) => {
+    e.preventDefault();
+    setIsSavingConfig(true);
+    try {
+      const response = await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telegramToken: telegramTokenInput,
+          twilioSid: twilioSidInput,
+          twilioAuth: twilioAuthInput,
+          twilioPhone: twilioPhoneInput
+        })
+      });
+      if (response.ok) {
+        const configRes = await fetch("/api/config");
+        const data = await configRes.json();
+        setIntegrationConfig(data);
+        setTelegramTokenInput("");
+        setTwilioSidInput("");
+        setTwilioAuthInput("");
+        setTwilioPhoneInput("");
+        addLog("External integrations updated successfully.", "info");
+      }
+    } catch (error) {
+      console.error("Failed to save config:", error);
+      addLog("Failed to update external integrations.", "error");
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -507,14 +543,6 @@ export default function App() {
                             {integrationConfig.telegram ? "Active" : "Config Required"}
                           </span>
                         </div>
-                        {integrationConfig.telegram && (
-                          <div className="pl-7 space-y-1">
-                            <div className="flex justify-between text-[10px] font-mono opacity-60">
-                              <span>Token:</span>
-                              <span>{integrationConfig.telegramToken}</span>
-                            </div>
-                          </div>
-                        )}
                       </div>
 
                       <div>
@@ -533,10 +561,6 @@ export default function App() {
                               <span>Phone:</span>
                               <span>{integrationConfig.whatsappNumber}</span>
                             </div>
-                            <div className="flex justify-between text-[10px] font-mono opacity-60">
-                              <span>SID:</span>
-                              <span>{integrationConfig.twilioAccountSid}</span>
-                            </div>
                             <div className="mt-2 pt-2 border-t border-[#141414]/5">
                               <p className="text-[9px] uppercase tracking-widest opacity-40 mb-1">Webhook URL</p>
                               <code className="text-[9px] block p-1 bg-[#141414]/5 break-all">
@@ -547,6 +571,62 @@ export default function App() {
                         )}
                       </div>
                     </div>
+                  </div>
+
+                  {/* Configure Integrations */}
+                  <div className="border border-[#141414] p-6 bg-white md:col-span-2">
+                    <h3 className="font-serif italic text-xs uppercase opacity-50 mb-4 tracking-widest">Configure Integrations</h3>
+                    <form onSubmit={handleSaveConfig} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase opacity-60 mb-1">Telegram Bot Token</label>
+                          <input 
+                            type="password" 
+                            value={telegramTokenInput}
+                            onChange={(e) => setTelegramTokenInput(e.target.value)}
+                            placeholder="Enter Telegram Token"
+                            className="w-full border border-[#141414] p-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#141414]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase opacity-60 mb-1">Twilio Account SID</label>
+                          <input 
+                            type="password" 
+                            value={twilioSidInput}
+                            onChange={(e) => setTwilioSidInput(e.target.value)}
+                            placeholder="Enter Twilio SID"
+                            className="w-full border border-[#141414] p-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#141414]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase opacity-60 mb-1">Twilio Auth Token</label>
+                          <input 
+                            type="password" 
+                            value={twilioAuthInput}
+                            onChange={(e) => setTwilioAuthInput(e.target.value)}
+                            placeholder="Enter Twilio Auth Token"
+                            className="w-full border border-[#141414] p-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#141414]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase opacity-60 mb-1">Twilio Phone Number</label>
+                          <input 
+                            type="text" 
+                            value={twilioPhoneInput}
+                            onChange={(e) => setTwilioPhoneInput(e.target.value)}
+                            placeholder="e.g. +1234567890"
+                            className="w-full border border-[#141414] p-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#141414]"
+                          />
+                        </div>
+                      </div>
+                      <button 
+                        type="submit" 
+                        disabled={isSavingConfig}
+                        className="bg-[#141414] text-[#E4E3E0] px-4 py-2 text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+                      >
+                        {isSavingConfig ? "Saving..." : "Save Configuration"}
+                      </button>
+                    </form>
                   </div>
 
                   {/* API & Environment */}
