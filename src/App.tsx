@@ -53,7 +53,13 @@ export default function App() {
   const [isThinking, setIsThinking] = useState(false);
   const [activeTab, setActiveTab] = useState<"dashboard" | "settings">("dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [integrationConfig, setIntegrationConfig] = useState<{ telegram: boolean; whatsapp: boolean }>({ telegram: false, whatsapp: false });
+  const [integrationConfig, setIntegrationConfig] = useState<{ 
+    telegram: boolean; 
+    whatsapp: boolean;
+    telegramToken?: string | null;
+    whatsappNumber?: string | null;
+    twilioAccountSid?: string | null;
+  }>({ telegram: false, whatsapp: false });
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -140,10 +146,30 @@ export default function App() {
     setIsThinking(true);
 
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        throw new Error("GEMINI_API_KEY is not defined in the environment.");
+      // Platform standard is process.env.GEMINI_API_KEY
+      // Fallback to (import.meta as any).env.VITE_GEMINI_API_KEY for external deployments like Netlify
+      let apiKey = "";
+      try {
+        apiKey = process.env.GEMINI_API_KEY || (process.env as any).API_KEY || "";
+      } catch (e) {
+        // process.env might not be defined in some environments
       }
+      
+      if (!apiKey) {
+        apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (import.meta as any).env?.VITE_API_KEY || "";
+      }
+      
+      if (!apiKey) {
+        addLog("Neural bridge offline: GEMINI_API_KEY is missing. Please configure environment variables.", "error");
+        setBotMessages(prev => [...prev, { 
+          id: Date.now(), 
+          role: "bot", 
+          text: "Neural bridge offline: I cannot establish a connection without a valid GEMINI_API_KEY. Please ensure it is set in your environment variables (use VITE_GEMINI_API_KEY for external deployments)." 
+        }]);
+        setIsThinking(false);
+        return;
+      }
+
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
@@ -171,7 +197,7 @@ export default function App() {
       setBotMessages(prev => [...prev, { 
         id: Date.now(), 
         role: "bot", 
-        text: "Shiver me timbers! I've lost me connection to the great library. (Error calling API)" 
+        text: "Neural bridge failure. Please check your system logs and API configuration. Ensure the GEMINI_API_KEY is correctly set." 
       }]);
     } finally {
       setIsThinking(false);
@@ -470,33 +496,56 @@ export default function App() {
                   {/* Integration Status */}
                   <div className="border border-[#141414] p-6 bg-white">
                     <h3 className="font-serif italic text-xs uppercase opacity-50 mb-4 tracking-widest">External Integrations</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Send className="w-4 h-4 text-sky-500" />
-                          <span className="text-sm font-mono">Telegram Bot</span>
+                    <div className="space-y-6">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <Send className="w-4 h-4 text-sky-500" />
+                            <span className="text-sm font-mono">Telegram Bot</span>
+                          </div>
+                          <span className="text-[10px] font-mono uppercase px-2 py-0.5 border border-[#141414]/20">
+                            {integrationConfig.telegram ? "Active" : "Config Required"}
+                          </span>
                         </div>
-                        <span className="text-[10px] font-mono uppercase px-2 py-0.5 border border-[#141414]/20">
-                          {integrationConfig.telegram ? "Active" : "Config Required"}
-                        </span>
+                        {integrationConfig.telegram && (
+                          <div className="pl-7 space-y-1">
+                            <div className="flex justify-between text-[10px] font-mono opacity-60">
+                              <span>Token:</span>
+                              <span>{integrationConfig.telegramToken}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <MessageCircle className="w-4 h-4 text-emerald-500" />
-                          <span className="text-sm font-mono">WhatsApp (Twilio)</span>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <MessageCircle className="w-4 h-4 text-emerald-500" />
+                            <span className="text-sm font-mono">WhatsApp (Twilio)</span>
+                          </div>
+                          <span className="text-[10px] font-mono uppercase px-2 py-0.5 border border-[#141414]/20">
+                            {integrationConfig.whatsapp ? "Active" : "Config Required"}
+                          </span>
                         </div>
-                        <span className="text-[10px] font-mono uppercase px-2 py-0.5 border border-[#141414]/20">
-                          {integrationConfig.whatsapp ? "Active" : "Config Required"}
-                        </span>
+                        {integrationConfig.whatsapp && (
+                          <div className="pl-7 space-y-1">
+                            <div className="flex justify-between text-[10px] font-mono opacity-60">
+                              <span>Phone:</span>
+                              <span>{integrationConfig.whatsappNumber}</span>
+                            </div>
+                            <div className="flex justify-between text-[10px] font-mono opacity-60">
+                              <span>SID:</span>
+                              <span>{integrationConfig.twilioAccountSid}</span>
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-[#141414]/5">
+                              <p className="text-[9px] uppercase tracking-widest opacity-40 mb-1">Webhook URL</p>
+                              <code className="text-[9px] block p-1 bg-[#141414]/5 break-all">
+                                {window.location.origin}/api/whatsapp/webhook
+                              </code>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      {integrationConfig.whatsapp && (
-                        <div className="mt-4 pt-4 border-t border-[#141414]/10">
-                          <p className="text-[10px] uppercase tracking-widest opacity-50 mb-2">Webhook URL</p>
-                          <code className="text-[10px] block p-2 bg-[#141414]/5 break-all">
-                            {window.location.origin}/api/whatsapp/webhook
-                          </code>
-                        </div>
-                      )}
                     </div>
                   </div>
 

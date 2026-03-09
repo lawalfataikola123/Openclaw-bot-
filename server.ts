@@ -1,6 +1,5 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
 import { Telegraf } from "telegraf";
 import twilio from "twilio";
 import bodyParser from "body-parser";
@@ -11,47 +10,16 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-// Gemini Initialization
-function getAI() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn("GEMINI_API_KEY is not defined in the environment. AI features will be limited.");
-    return null;
-  }
-  return new GoogleGenAI({ apiKey });
-}
-
-const ai = getAI();
-
-async function generateAIResponse(prompt: string) {
-  if (!ai) {
-    return "Neural bridge offline: GEMINI_API_KEY is missing. Please configure the environment.";
-  }
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        systemInstruction: "You are OpenClaw, the advanced AI interface for the OpenClaw Dashboard. You are professional, precise, and highly technical. You have access to Google Search to provide accurate, up-to-date information. Maintain a clean, efficient communication style.",
-        tools: [{ googleSearch: {} }],
-      },
-    });
-    return response.text || "System error: Neural bridge timeout. (No response from model)";
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    return "Neural bridge failure. Please check system logs for details.";
-  }
-}
-
 // Telegram Integration
 if (process.env.TELEGRAM_BOT_TOKEN) {
   const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
   
-  bot.start((ctx) => ctx.reply("OpenClaw neural bridge established on Telegram. System status nominal. How can I assist?"));
+  bot.start((ctx) => ctx.reply("OpenClaw neural bridge established. System is monitoring all neural signals. Use the web dashboard for full command control."));
   
   bot.on("text", async (ctx) => {
-    const response = await generateAIResponse(ctx.message.text);
-    await ctx.reply(response);
+    const userMessage = ctx.message.text;
+    console.log(`[Telegram] Received: ${userMessage}`);
+    await ctx.reply("Signal received. Neural bridge is currently in monitoring mode. Please use the primary dashboard for bidirectional AI communication.");
   });
 
   bot.launch().then(() => {
@@ -70,11 +38,12 @@ app.use(bodyParser.urlencoded({ extended: false }));
 
 app.post("/api/whatsapp/webhook", async (req, res) => {
   const { Body, From } = req.body;
+  console.log(`[WhatsApp] Received from ${From}: ${Body}`);
+  
   const twiml = new twilio.twiml.MessagingResponse();
 
   if (Body) {
-    const response = await generateAIResponse(Body);
-    twiml.message(response);
+    twiml.message("Neural bridge active. Signal intercepted. For full AI command execution, please access the OpenClaw dashboard.");
   }
 
   res.writeHead(200, { "Content-Type": "text/xml" });
@@ -91,6 +60,10 @@ async function startServer() {
     res.json({
       telegram: !!process.env.TELEGRAM_BOT_TOKEN,
       whatsapp: !!process.env.TWILIO_ACCOUNT_SID,
+      hasApiKey: !!process.env.GEMINI_API_KEY,
+      telegramToken: process.env.TELEGRAM_BOT_TOKEN ? `${process.env.TELEGRAM_BOT_TOKEN.substring(0, 6)}...` : null,
+      whatsappNumber: process.env.TWILIO_PHONE_NUMBER || null,
+      twilioAccountSid: process.env.TWILIO_ACCOUNT_SID ? `${process.env.TWILIO_ACCOUNT_SID.substring(0, 6)}...` : null,
     });
   });
 
