@@ -31,9 +31,8 @@ import { GoogleGenAI } from "@google/genai";
 // Mock data for the dashboard
 const INITIAL_LOGS = [
   { id: 1, time: "13:51:41", type: "info", message: "System initialized. Waiting for command." },
-  { id: 2, time: "13:52:00", type: "warning", message: "OpenClaw installation script requested." },
-  { id: 3, time: "13:54:13", type: "error", message: "Unexpected error encountered during installation." },
-  { id: 4, time: "13:54:14", type: "info", message: "Retrying installation process..." },
+  { id: 2, time: "13:52:00", type: "info", message: "OpenClaw neural bridge ready for synchronization." },
+  { id: 3, time: "13:54:13", type: "info", message: "All systems nominal. Monitoring high-level operations." },
 ];
 
 interface Message {
@@ -141,7 +140,11 @@ export default function App() {
     setIsThinking(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("GEMINI_API_KEY is not defined in the environment.");
+      }
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: currentInput,
@@ -197,16 +200,23 @@ export default function App() {
       {/* Top Navigation / Status Bar */}
       <header className="border-b border-[#141414] p-4 flex items-center justify-between sticky top-0 bg-[#E4E3E0] z-50">
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden p-1 hover:bg-[#141414]/5 transition-colors"
-          >
-            {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
+          {activeTab === "settings" && (
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-1 hover:bg-[#141414]/5 transition-colors"
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          )}
           <div className="w-8 h-8 bg-[#141414] flex items-center justify-center rounded-sm hidden sm:flex">
             <Cpu className="text-[#E4E3E0] w-5 h-5" />
           </div>
-          <h1 className="font-serif italic text-lg sm:text-xl tracking-tight truncate">OpenClaw Dashboard</h1>
+          <h1 
+            className="font-serif italic text-lg sm:text-xl tracking-tight truncate cursor-pointer"
+            onClick={() => setActiveTab("dashboard")}
+          >
+            OpenClaw Dashboard
+          </h1>
         </div>
         
         <div className="flex items-center gap-3 sm:gap-6">
@@ -222,10 +232,11 @@ export default function App() {
           </div>
           <button 
             onClick={() => {
-              setActiveTab("settings");
+              setActiveTab(activeTab === "dashboard" ? "settings" : "dashboard");
               setIsMobileMenuOpen(false);
             }}
             className={`p-1 transition-colors ${activeTab === "settings" ? "bg-[#141414] text-[#E4E3E0]" : "hover:bg-[#141414] hover:text-[#E4E3E0]"}`}
+            title={activeTab === "dashboard" ? "Open Settings" : "Back to Dashboard"}
           >
             <Settings className="w-4 h-4" />
           </button>
@@ -233,81 +244,83 @@ export default function App() {
       </header>
 
       <main className="flex flex-1 relative overflow-hidden">
-        {/* Left Sidebar - Controls */}
-        <aside className={`
-          fixed lg:relative z-40 lg:z-auto
-          w-64 h-[calc(100vh-65px)] lg:h-auto
-          border-r border-[#141414] bg-[#E4E3E0] p-6 
-          flex flex-col gap-8 shrink-0
-          transition-transform duration-300 ease-in-out
-          ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-        `}>
-          <nav className="flex flex-col gap-2">
-            <h2 className="font-serif italic text-xs uppercase opacity-50 mb-2 tracking-widest">Navigation</h2>
-            <button 
-              onClick={() => {
-                setActiveTab("dashboard");
-                setIsMobileMenuOpen(false);
-              }}
-              className={`flex items-center gap-3 p-3 border border-[#141414] transition-all ${
-                activeTab === "dashboard" ? "bg-[#141414] text-[#E4E3E0]" : "hover:bg-[#141414]/5"
-              }`}
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span className="font-mono text-xs uppercase tracking-widest">Dashboard</span>
-            </button>
-          </nav>
+        {/* Sidebar - Controls (Only visible in Settings) */}
+        {activeTab === "settings" && (
+          <aside className={`
+            fixed lg:relative z-40 lg:z-auto
+            w-64 h-[calc(100vh-65px)] lg:h-auto
+            border-r border-[#141414] bg-[#E4E3E0] p-6 
+            flex flex-col gap-8 shrink-0
+            transition-transform duration-300 ease-in-out
+            ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+          `}>
+            <nav className="flex flex-col gap-2">
+              <h2 className="font-serif italic text-xs uppercase opacity-50 mb-2 tracking-widest">Navigation</h2>
+              <button 
+                onClick={() => {
+                  setActiveTab("dashboard");
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`flex items-center gap-3 p-3 border border-[#141414] transition-all ${
+                  activeTab === "dashboard" ? "bg-[#141414] text-[#E4E3E0]" : "hover:bg-[#141414]/5"
+                }`}
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span className="font-mono text-xs uppercase tracking-widest">Dashboard</span>
+              </button>
+            </nav>
 
-          <section>
-            <h2 className="font-serif italic text-xs uppercase opacity-50 mb-4 tracking-widest">Command Center</h2>
-            <div className="flex flex-col gap-3">
-              <button 
-                onClick={toggleBot}
-                disabled={isRepairing}
-                className={`flex items-center justify-between p-4 border border-[#141414] transition-all group ${
-                  isBotActive ? "bg-[#141414] text-[#E4E3E0]" : "hover:bg-[#141414] hover:text-[#E4E3E0]"
-                } disabled:opacity-50`}
-              >
-                <span className="font-mono text-sm uppercase tracking-tight">
-                  {isBotActive ? "Stop Engine" : "Start Engine"}
-                </span>
-                {isBotActive ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-              </button>
-              
-              <button 
-                onClick={repairSystem}
-                disabled={isRepairing}
-                className="flex items-center justify-between p-4 border border-[#141414] hover:bg-[#141414] hover:text-[#E4E3E0] transition-all group disabled:opacity-50"
-              >
-                <span className="font-mono text-sm uppercase tracking-tight text-left">
-                  {isRepairing ? "Repairing..." : "Fix All Errors"}
-                </span>
-                <RefreshCcw className={`w-4 h-4 ${isRepairing ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"}`} />
-              </button>
-            </div>
-          </section>
+            <section>
+              <h2 className="font-serif italic text-xs uppercase opacity-50 mb-4 tracking-widest">Command Center</h2>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={toggleBot}
+                  disabled={isRepairing}
+                  className={`flex items-center justify-between p-4 border border-[#141414] transition-all group ${
+                    isBotActive ? "bg-[#141414] text-[#E4E3E0]" : "hover:bg-[#141414] hover:text-[#E4E3E0]"
+                  } disabled:opacity-50`}
+                >
+                  <span className="font-mono text-sm uppercase tracking-tight">
+                    {isBotActive ? "Stop Engine" : "Start Engine"}
+                  </span>
+                  {isBotActive ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                </button>
+                
+                <button 
+                  onClick={repairSystem}
+                  disabled={isRepairing}
+                  className="flex items-center justify-between p-4 border border-[#141414] hover:bg-[#141414] hover:text-[#E4E3E0] transition-all group disabled:opacity-50"
+                >
+                  <span className="font-mono text-sm uppercase tracking-tight text-left">
+                    {isRepairing ? "Repairing..." : "Fix All Errors"}
+                  </span>
+                  <RefreshCcw className={`w-4 h-4 ${isRepairing ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"}`} />
+                </button>
+              </div>
+            </section>
 
-          <section>
-            <h2 className="font-serif italic text-xs uppercase opacity-50 mb-4 tracking-widest">System Integration</h2>
-            <div className="flex flex-col gap-3">
-              <button 
-                onClick={toggleOpenClaw}
-                disabled={isRepairing}
-                className={`flex items-center justify-between p-4 border border-[#141414] transition-all group ${
-                  isOpenClawActive ? "bg-[#141414] text-[#E4E3E0]" : "hover:bg-[#141414] hover:text-[#E4E3E0]"
-                } disabled:opacity-50`}
-              >
-                <span className="font-mono text-sm uppercase tracking-tight">
-                  {isOpenClawActive ? "Stop AI" : "Launch AI"}
-                </span>
-                <Gamepad2 className="w-4 h-4" />
-              </button>
-            </div>
-          </section>
-        </aside>
+            <section>
+              <h2 className="font-serif italic text-xs uppercase opacity-50 mb-4 tracking-widest">System Integration</h2>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={toggleOpenClaw}
+                  disabled={isRepairing}
+                  className={`flex items-center justify-between p-4 border border-[#141414] transition-all group ${
+                    isOpenClawActive ? "bg-[#141414] text-[#E4E3E0]" : "hover:bg-[#141414] hover:text-[#E4E3E0]"
+                  } disabled:opacity-50`}
+                >
+                  <span className="font-mono text-sm uppercase tracking-tight">
+                    {isOpenClawActive ? "Stop AI" : "Launch AI"}
+                  </span>
+                  <Gamepad2 className="w-4 h-4" />
+                </button>
+              </div>
+            </section>
+          </aside>
+        )}
 
         {/* Mobile Overlay */}
-        {isMobileMenuOpen && (
+        {isMobileMenuOpen && activeTab === "settings" && (
           <div 
             className="fixed inset-0 bg-black/20 z-30 lg:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
@@ -315,7 +328,7 @@ export default function App() {
         )}
 
         {/* Main Content Area */}
-        <section className="flex-1 p-3 sm:p-6 flex flex-col gap-6 overflow-hidden">
+        <section className={`flex-1 p-3 sm:p-6 flex flex-col gap-6 overflow-hidden ${activeTab === "dashboard" ? "max-w-4xl mx-auto w-full" : ""}`}>
           <AnimatePresence mode="wait">
             {activeTab === "dashboard" ? (
               <motion.div 

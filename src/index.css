@@ -9,7 +9,7 @@
 
 @layer base {
   body {
-    @apply bg-[#0A0A0A] text-[#F5F5F5] antialiased;
+    @apply bg-[#E4E3E0] text-[#141414] antialiased;
   }
 }
 

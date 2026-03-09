@@ -12,9 +12,21 @@ const app = express();
 const PORT = 3000;
 
 // Gemini Initialization
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+function getAI() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.warn("GEMINI_API_KEY is not defined in the environment. AI features will be limited.");
+    return null;
+  }
+  return new GoogleGenAI({ apiKey });
+}
+
+const ai = getAI();
 
 async function generateAIResponse(prompt: string) {
+  if (!ai) {
+    return "Neural bridge offline: GEMINI_API_KEY is missing. Please configure the environment.";
+  }
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
