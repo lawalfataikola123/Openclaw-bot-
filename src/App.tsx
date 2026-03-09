@@ -63,12 +63,28 @@ export default function App() {
   const [twilioSidInput, setTwilioSidInput] = useState("");
   const [twilioAuthInput, setTwilioAuthInput] = useState("");
   const [twilioPhoneInput, setTwilioPhoneInput] = useState("");
+  const [geminiApiKeyInput, setGeminiApiKeyInput] = useState("");
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const savedKey = localStorage.getItem("OPENCLAW_GEMINI_API_KEY");
+    if (savedKey) {
+      setGeminiApiKeyInput(savedKey);
+    }
+  }, []);
 
   const handleSaveConfig = async (e: FormEvent) => {
     e.preventDefault();
     setIsSavingConfig(true);
+    
+    if (geminiApiKeyInput.trim()) {
+      localStorage.setItem("OPENCLAW_GEMINI_API_KEY", geminiApiKeyInput.trim());
+      addLog("Gemini API Key saved locally.", "info");
+    } else {
+      localStorage.removeItem("OPENCLAW_GEMINI_API_KEY");
+    }
+
     try {
       const response = await fetch("/api/config", {
         method: "POST",
@@ -91,8 +107,10 @@ export default function App() {
         addLog("External integrations updated successfully.", "info");
       }
     } catch (error) {
-      console.error("Failed to save config:", error);
-      addLog("Failed to update external integrations.", "error");
+      console.error("Failed to save backend config (expected on static hosts like Netlify):", error);
+      if (telegramTokenInput || twilioSidInput) {
+        addLog("Backend integrations require a Node.js server. They will not work on static hosts like Netlify.", "warning");
+      }
     } finally {
       setIsSavingConfig(false);
     }
@@ -184,11 +202,14 @@ export default function App() {
     try {
       // Platform standard is process.env.GEMINI_API_KEY
       // Fallback to (import.meta as any).env.VITE_GEMINI_API_KEY for external deployments like Netlify
-      let apiKey = "";
-      try {
-        apiKey = process.env.GEMINI_API_KEY || (process.env as any).API_KEY || "";
-      } catch (e) {
-        // process.env might not be defined in some environments
+      let apiKey = localStorage.getItem("OPENCLAW_GEMINI_API_KEY") || "";
+      
+      if (!apiKey) {
+        try {
+          apiKey = process.env.GEMINI_API_KEY || (process.env as any).API_KEY || "";
+        } catch (e) {
+          // process.env might not be defined in some environments
+        }
       }
       
       if (!apiKey) {
@@ -196,11 +217,11 @@ export default function App() {
       }
       
       if (!apiKey) {
-        addLog("Neural bridge offline: GEMINI_API_KEY is missing. Please configure environment variables.", "error");
+        addLog("Neural bridge offline: GEMINI_API_KEY is missing. Please configure it in Settings.", "error");
         setBotMessages(prev => [...prev, { 
           id: Date.now(), 
           role: "bot", 
-          text: "Neural bridge offline: I cannot establish a connection without a valid GEMINI_API_KEY. Please ensure it is set in your environment variables (use VITE_GEMINI_API_KEY for external deployments)." 
+          text: "Neural bridge offline: I cannot establish a connection without a valid Gemini API Key. Please enter your API key in the Settings tab." 
         }]);
         setIsThinking(false);
         return;
@@ -578,6 +599,17 @@ export default function App() {
                     <h3 className="font-serif italic text-xs uppercase opacity-50 mb-4 tracking-widest">Configure Integrations</h3>
                     <form onSubmit={handleSaveConfig} className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2 border-b border-[#141414]/10 pb-4 mb-2">
+                          <label className="block text-[10px] font-mono uppercase opacity-60 mb-1">Gemini API Key (Required for Netlify/Static)</label>
+                          <input 
+                            type="password" 
+                            value={geminiApiKeyInput}
+                            onChange={(e) => setGeminiApiKeyInput(e.target.value)}
+                            placeholder="Enter Gemini API Key"
+                            className="w-full border border-[#141414] p-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#141414]"
+                          />
+                          <p className="text-[9px] italic opacity-40 mt-1">Saved locally in your browser. Required if not set in environment variables.</p>
+                        </div>
                         <div>
                           <label className="block text-[10px] font-mono uppercase opacity-60 mb-1">Telegram Bot Token</label>
                           <input 
