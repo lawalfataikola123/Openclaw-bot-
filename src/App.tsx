@@ -215,6 +215,8 @@ export default function App() {
       if (!apiKey) {
         apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (import.meta as any).env?.VITE_API_KEY || "";
       }
+
+      apiKey = apiKey.trim();
       
       if (!apiKey) {
         addLog("Neural bridge offline: GEMINI_API_KEY is missing. Please configure it in Settings.", "error");
@@ -232,29 +234,24 @@ export default function App() {
         model: "gemini-3-flash-preview",
         contents: currentInput,
         config: {
-          systemInstruction: "You are OpenClaw, the advanced AI interface for the OpenClaw Dashboard. You have access to Google Search to provide accurate, up-to-date information. Maintain a clean, efficient communication style.",
-          tools: [{ googleSearch: {} }],
+          systemInstruction: "You are OpenClaw, the advanced AI interface for the OpenClaw Dashboard. Maintain a clean, efficient communication style.",
         },
       });
 
       const text = response.text || "Arr, I be lost at sea! (No response from model)";
-      const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
-        ?.filter(chunk => chunk.web)
-        ?.map(chunk => ({ uri: chunk.web!.uri, title: chunk.web!.title || chunk.web!.uri })) || [];
 
       setBotMessages(prev => [...prev, { 
         id: Date.now(), 
         role: "bot", 
-        text,
-        sources: sources.length > 0 ? sources : undefined
+        text
       }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Gemini API Error:", error);
       addLog("OpenClaw communication error: Check API key or connection.", "error");
       setBotMessages(prev => [...prev, { 
         id: Date.now(), 
         role: "bot", 
-        text: "Neural bridge failure. Please check your system logs and API configuration. Ensure the GEMINI_API_KEY is correctly set." 
+        text: `Neural bridge failure. Error: ${error?.message || "Unknown error"}. Please check your system logs and API configuration. Ensure the GEMINI_API_KEY is correctly set.` 
       }]);
     } finally {
       setIsThinking(false);
